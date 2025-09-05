@@ -80,8 +80,8 @@ interface:
 
       By using the Website, you acknowledge that you have read these Terms of Service and agree to be bound by them.
 
-  endpointsMenu: true
-  modelSelect: true
+  endpointsMenu: false
+  modelSelect: false
   parameters: true
   sidePanel: true
   presets: true
@@ -156,7 +156,14 @@ actions:
     - 'google.com'
 
 # Example MCP Servers Object Structure
-# mcpServers:
+mcpServers:
+  playwright:
+    type: stdio
+    command: npx
+    args:
+      - -y
+      - "@executeautomation/playwright-mcp-server"
+    timeout: 300000  # 5 minutes timeout for this server
 #   everything:
 #     # type: sse # type can optionally be omitted
 #     url: http://localhost:3001/sse
