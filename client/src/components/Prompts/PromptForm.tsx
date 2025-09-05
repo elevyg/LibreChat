@@ -20,11 +20,11 @@ import {
   useUpdatePromptGroup,
   useMakePromptProduction,
 } from '~/data-provider';
-import { useResourcePermissions, useHasAccess, useLocalize } from '~/hooks';
+import { useResourcePermissions, useHasAccess, useLocalize, usePromptFileHandling } from '~/hooks';
 import CategorySelector from './Groups/CategorySelector';
 import { usePromptGroupsContext } from '~/Providers';
 import NoPromptGroup from './Groups/NoPromptGroup';
-import PromptVariables from './PromptVariables';
+import PromptVariablesAndFiles from './PromptVariablesAndFiles';
 import { cn, findPromptGroup } from '~/utils';
 import PromptVersions from './PromptVersions';
 import { PromptsEditorMode } from '~/common';
@@ -119,7 +119,12 @@ const RightPanel = React.memo(
                   makeProductionMutation.mutate({
                     id: promptVersionId,
                     groupId,
-                    productionPrompt: { prompt },
+                    productionPrompt: {
+                      prompt,
+                      ...(selectedPrompt.tool_resources && {
+                        tool_resources: selectedPrompt.tool_resources,
+                      }),
+                    },
                   });
                 }}
                 disabled={
@@ -179,6 +184,15 @@ const PromptForm = () => {
   const [showSidePanel, setShowSidePanel] = useState(false);
   const sidePanelWidth = '320px';
 
+  // Initialize prompt file handling
+  const {
+    loadFromToolResources,
+    getToolResources,
+    promptFiles: hookPromptFiles,
+    handleFileChange,
+    handleFileRemove,
+  } = usePromptFileHandling();
+
   const { data: group, isLoading: isLoadingGroup } = useGetPromptGroup(promptId);
   const { data: prompts = [], isLoading: isLoadingPrompts } = useGetPrompts(
     { groupId: promptId },
@@ -237,7 +251,10 @@ const PromptForm = () => {
         makeProductionMutation.mutate({
           id: data.prompt._id,
           groupId: data.prompt.groupId,
-          productionPrompt: { prompt: data.prompt.prompt },
+          productionPrompt: {
+            prompt: data.prompt.prompt,
+            ...(data.prompt.tool_resources && { tool_resources: data.prompt.tool_resources }),
+          },
         });
       }
 
@@ -268,11 +285,13 @@ const PromptForm = () => {
         return;
       }
 
+      const toolResources = getToolResources();
       const tempPrompt: TCreatePrompt = {
         prompt: {
           type: selectedPrompt.type ?? 'text',
           groupId: groupId,
           prompt: value,
+          ...(toolResources && { tool_resources: toolResources }),
         },
       };
 
@@ -283,7 +302,7 @@ const PromptForm = () => {
       // We're adding to an existing group, so use the addPromptToGroup mutation
       addPromptToGroupMutation.mutate({ ...tempPrompt, groupId });
     },
-    [selectedPrompt, group, addPromptToGroupMutation, canEdit],
+    [selectedPrompt, group, addPromptToGroupMutation, canEdit, getToolResources],
   );
 
   const handleLoadingComplete = useCallback(() => {
@@ -307,6 +326,13 @@ const PromptForm = () => {
   useEffect(() => {
     setValue('prompt', selectedPrompt ? selectedPrompt.prompt : '', { shouldDirty: false });
     setValue('category', group ? group.category : '', { shouldDirty: false });
+
+    // Load files from selected prompt's tool_resources
+    if (selectedPrompt?.tool_resources) {
+      loadFromToolResources(selectedPrompt.tool_resources);
+    } else {
+      loadFromToolResources(undefined);
+    }
   }, [selectedPrompt, group, setValue]);
 
   useEffect(() => {
@@ -446,8 +472,20 @@ const PromptForm = () => {
                       name="prompt"
                       isEditing={isEditing}
                       setIsEditing={(value) => canEdit && setIsEditing(value)}
+                      onFilesChange={() => {}} // Hook manages files internally
+                      initialFiles={hookPromptFiles}
                     />
-                    <PromptVariables promptText={promptText} />
+                    <PromptVariablesAndFiles
+                      promptText={promptText}
+                      files={hookPromptFiles}
+                      onFilesChange={() => {}} // Hook manages files internally
+                      onToolResourcesChange={() => {
+                        // Hook manages tool resources internally
+                      }}
+                      handleFileChange={handleFileChange}
+                      handleFileRemove={handleFileRemove}
+                      disabled={!canEdit}
+                    />
                     <Description
                       initialValue={group.oneliner ?? ''}
                       onValueChange={canEdit ? handleUpdateOneliner : undefined}

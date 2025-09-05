@@ -1,16 +1,18 @@
-import { useEffect } from 'react';
+import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Button, TextareaAutosize, Input } from '@librechat/client';
 import { useForm, Controller, FormProvider } from 'react-hook-form';
 import { LocalStorageKeys, PermissionTypes, Permissions } from 'librechat-data-provider';
+import type { AgentToolResources, ExtendedFile } from 'librechat-data-provider';
 import CategorySelector from '~/components/Prompts/Groups/CategorySelector';
 import VariablesDropdown from '~/components/Prompts/VariablesDropdown';
-import PromptVariables from '~/components/Prompts/PromptVariables';
+import PromptVariablesAndFiles from '~/components/Prompts/PromptVariablesAndFiles';
 import Description from '~/components/Prompts/Description';
 import { useLocalize, useHasAccess } from '~/hooks';
 import Command from '~/components/Prompts/Command';
 import { useCreatePrompt } from '~/data-provider';
 import { cn } from '~/utils';
+import AttachFileMenu from '~/components/Chat/Input/Files/AttachFileMenu';
 
 type CreateFormValues = {
   name: string;
@@ -37,6 +39,9 @@ const CreatePromptForm = ({
 }) => {
   const localize = useLocalize();
   const navigate = useNavigate();
+  const [files, setFiles] = useState<ExtendedFile[]>([]);
+  const [toolResources, setToolResources] = useState<AgentToolResources | undefined>();
+
   const hasAccess = useHasAccess({
     permissionType: PermissionTypes.PROMPTS,
     permission: Permissions.CREATE,
@@ -88,8 +93,15 @@ const CreatePromptForm = ({
     if ((command?.length ?? 0) > 0) {
       groupData.command = command;
     }
+
+    // Include tool_resources (files) in the prompt data
+    const promptData = { ...rest };
+    if (toolResources) {
+      promptData.tool_resources = toolResources;
+    }
+
     createPromptMutation.mutate({
-      prompt: rest,
+      prompt: promptData,
       group: groupData,
     });
   };
@@ -134,8 +146,11 @@ const CreatePromptForm = ({
           <div>
             <h2 className="flex items-center justify-between rounded-t-lg border border-border-medium py-2 pl-4 pr-1 text-base font-semibold dark:text-gray-200">
               <span>{localize('com_ui_prompt_text')}*</span>
+              {/* <span className="text-red-500">TEST</span> */}
+              {/* <AttachFileMenu conversationId="1" /> */}
               <VariablesDropdown fieldName="prompt" className="mr-2" />
             </h2>
+            {/* <AttachFileMenu conversationId="1" /> */}
             <div className="min-h-32 rounded-b-lg border border-border-medium p-4 transition-all duration-150">
               <Controller
                 name="prompt"
@@ -161,7 +176,13 @@ const CreatePromptForm = ({
               />
             </div>
           </div>
-          <PromptVariables promptText={promptText} />
+          <PromptVariablesAndFiles
+            promptText={promptText}
+            files={files}
+            onFilesChange={setFiles}
+            onToolResourcesChange={setToolResources}
+            disabled={isSubmitting}
+          />
           <Description
             onValueChange={(value) => methods.setValue('oneliner', value)}
             tabIndex={0}

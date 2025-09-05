@@ -349,6 +349,7 @@ export type TAskProps = {
   conversationId?: string | null;
   messageId?: string | null;
   clientTimestamp?: string;
+  toolResources?: t.AgentToolResources;
 };
 
 export type TOptions = {
